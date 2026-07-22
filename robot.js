@@ -87,8 +87,43 @@ function findRoute(graph, from, to) {
 }
 
 // ==========================================
-// 4. ROBOT CẢI TIẾN (efficientRobot)
+// 4. BỔ SUNG CÁC CON ROBOT CŨ & EFFICIENT ROBOT
 // ==========================================
+
+// --- Robot Cũ 1: Ngẫu nhiên ---
+function randomRobot(state) {
+    return { direction: randomPick(roadGraph[state.place]) };
+}
+
+// --- Robot Cũ 2: Theo lộ trình cố định ---
+const mailRoute = [
+    "Alice's House", "Cabin", "Alice's House", "Bob's House",
+    "Town Hall", "Daria's House", "Ernie's House",
+    "Grete's House", "Shop", "Grete's House", "Farm",
+    "Marketplace", "Post Office"
+];
+
+function routeRobot(state, memory) {
+    if (memory.length == 0) {
+        memory = mailRoute;
+    }
+    return { direction: memory[0], memory: memory.slice(1) };
+}
+
+// --- Robot Cũ 3: Có mục tiêu (BFS từng kiện) ---
+function goalOrientedRobot({ place, parcels }, route) {
+    if (route.length == 0) {
+        let parcel = parcels[0];
+        if (parcel.place != place) {
+            route = findRoute(roadGraph, place, parcel.place);
+        } else {
+            route = findRoute(roadGraph, place, parcel.address);
+        }
+    }
+    return { direction: route[0], memory: route.slice(1) };
+}
+
+// --- Robot Cải tiến: efficientRobot ---
 function efficientRobot({ place, parcels }, route) {
     if (route.length == 0) {
         let routes = parcels.map(parcel => {
@@ -117,7 +152,48 @@ function efficientRobot({ place, parcels }, route) {
 }
 
 // ==========================================
-// 5. HÀM CHẠY ROBOT VÀ IN LOG CHI TIẾT
+// 5. HÀM ĐẾM SỐ BƯỚC ĐỂ SO SÁNH
+// ==========================================
+function countSteps(state, robot, memory = []) {
+    for (let turn = 0; ; turn++) {
+        if (state.parcels.length == 0) return turn;
+        let action = robot(state, memory);
+        state = state.move(action.direction);
+        memory = action.memory;
+    }
+}
+
+// ==========================================
+// 6. HÀM SO SÁNH 2 ROBOT TRONG 100 LẦN
+// ==========================================
+function compareRobots(robot1, robot2, taskCount = 100) {
+    let total1 = 0, total2 = 0;
+
+    for (let i = 0; i < taskCount; i++) {
+        // Cùng một trạng thái xuất phát cho cả 2 robot để đảm bảo công bằng
+        let state = VillageState.random();
+        total1 += countSteps(state, robot1.fn);
+        total2 += countSteps(state, robot2.fn);
+    }
+
+    console.log(`=======================================================`);
+    console.log(`📊 SO SÁNH HIỆU SUẤT TRONG ${taskCount} LẦN CHẠY`);
+    console.log(`=======================================================`);
+    console.log(`🤖 ${robot1.name.padEnd(20)}: TRUNG BÌNH ${(total1 / taskCount).toFixed(2)} BƯỚC / LẦN`);
+    console.log(`🤖 ${robot2.name.padEnd(20)}: TRUNG BÌNH ${(total2 / taskCount).toFixed(2)} BƯỚC / LẦN`);
+    console.log(`-------------------------------------------------------`);
+
+    let diff = ((total1 - total2) / total1 * 100).toFixed(1);
+    if (total1 > total2) {
+        console.log(`🏆 ${robot2.name} NHANH HƠN ${robot1.name} KHẢO NGHĨA ${diff}%! 🔥`);
+    } else {
+        console.log(`🏆 ${robot1.name} NHANH HƠN ${robot2.name}!`);
+    }
+    console.log(`=======================================================\n`);
+}
+
+// ==========================================
+// 7. HÀM CHẠY ROBOT VÀ IN LOG CHI TIẾT (CODE GỐC CỦA BẠN)
 // ==========================================
 function runRobotVerbose(state, robot, memory = []) {
     let totalParcels = state.parcels.length;
@@ -128,7 +204,7 @@ function runRobotVerbose(state, robot, memory = []) {
 
     for (let turn = 1; ; turn++) {
         if (state.parcels.length == 0) {
-            console.log(`\n🎉 HOÀN THÀNH! Đã giao xong toàn bộ ${totalParcels} bưu kiện sau ${turn - 1} bước di chuyển.`);
+            console.log(`\n🎉 HOÀN THÀNH! Đã giao xong toàn bộ ${totalParcels} bưu kiện sau ${turn - 1} bước di chuyển.\n`);
             return turn - 1;
         }
 
@@ -144,7 +220,6 @@ function runRobotVerbose(state, robot, memory = []) {
         let newlyPicked = oldParcels.filter(p => p.place == state.place);
 
         // 2. Kiểm tra hàng vừa giao thành công tại điểm mới
-        // (Bưu kiện bước trước đang cầm đi giao tới địa điểm này và giờ đã biến mất khỏi state.parcels)
         let delivered = oldParcels.filter(p => p.place == prevPlace && p.address == state.place);
 
         // 3. Tính toán số liệu thống kê
@@ -171,7 +246,16 @@ function runRobotVerbose(state, robot, memory = []) {
 }
 
 // ==========================================
-// CHẠY THỬ NGHỆM
+// CHẠY THỬ SO SÁNH VÀ LOG CHI TIẾT
 // ==========================================
+
+// 1. So sánh 2 robot (goalOrientedRobot vs efficientRobot) trong 100 lần
+compareRobots(
+    { name: "goalOrientedRobot", fn: goalOrientedRobot },
+    { name: "efficientRobot", fn: efficientRobot },
+    100
+);
+
+// 2. In log chi tiết 1 lần chạy của efficientRobot
 let initialState = VillageState.random(5);
-runRobotVerbose(initialState, efficientRobot);
+runRobotVerbose(initialState, efficientRobot); 
